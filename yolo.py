@@ -2,76 +2,61 @@ import gradio as gr
 from ultralytics import YOLO
 import cv2
 import os
-import time
 
 model = YOLO("yolo26n.pt")
 
 
-def webcam_detection(video):
-    """
-    Receives webcam stream and yields processed frames.
-    """
+def detect_frame(frame):
+    if frame is None:
+        return None
 
-    cap = cv2.VideoCapture(video)
+    # Gradio gives RGB image
+    frame = cv2.cvtColor(frame, cv2.COLOR_RGB2BGR)
 
-    while cap.isOpened():
+    results = model.predict(
+        source=frame,
+        imgsz=320,
+        conf=0.4,
+        verbose=False
+    )
 
-        success, frame = cap.read()
+    annotated = results[0].plot()
 
-        if not success:
-            break
+    # Back to RGB for Gradio
+    annotated = cv2.cvtColor(
+        annotated,
+        cv2.COLOR_BGR2RGB
+    )
 
-        # YOLO inference
-        results = model(
-            frame,
-            imgsz=320,
-            conf=0.4,
-            verbose=False
-        )
-
-        # Draw boxes
-        annotated = results[0].plot()
-
-        # Convert BGR -> RGB
-        annotated = cv2.cvtColor(
-            annotated,
-            cv2.COLOR_BGR2RGB
-        )
-
-        yield annotated
-
-        # Control FPS
-        time.sleep(0.03)
-
-    cap.release()
+    return annotated
 
 
 with gr.Blocks() as demo:
 
-    gr.Markdown(
-        """
-        # YOLO26 Live Webcam Detection
-        """
-    )
+    gr.Markdown("# YOLO26 Live Webcam Detection")
 
-    input_video = gr.Video(
-        sources=["webcam"],
-        streaming=True,
-        label="Camera"
-    )
+    with gr.Row():
 
-    output_video = gr.Image(
-        label="YOLO Detection"
-    )
+        webcam = gr.Image(
+            sources=["webcam"],
+            streaming=True,
+            type="numpy",
+            label="Webcam"
+        )
 
-    input_video.stream(
-        fn=webcam_detection,
-        inputs=input_video,
-        outputs=output_video
+        output = gr.Image(
+            label="Detection"
+        )
+
+
+    webcam.stream(
+        fn=detect_frame,
+        inputs=webcam,
+        outputs=output
     )
 
 
 demo.launch(
     server_name="0.0.0.0",
-    server_port=int(os.environ.get("PORT",7860))
+    server_port=int(os.environ.get("PORT", 7860))
 )
