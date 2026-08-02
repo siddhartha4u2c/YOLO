@@ -42,6 +42,9 @@ demo = gr.Interface(
     description="Upload an image or use your webcam for real-time object detection.",
     allow_flagging="never"
 )
+import os
 
-if __name__ == "__main__":
-    demo.launch(server_name="0.0.0.0", server_port=7860)
+demo.launch(
+    server_name="0.0.0.0",
+    server_port=int(os.environ.get("PORT", 7860))
+)
