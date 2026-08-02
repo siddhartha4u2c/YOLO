@@ -1,77 +1,77 @@
 import gradio as gr
 from ultralytics import YOLO
 import cv2
-import numpy as np
 import os
+import time
 
-# Load model once
 model = YOLO("yolo26n.pt")
 
 
-def detect_frame(frame):
+def webcam_detection(video):
     """
-    Receives webcam frame continuously
-    and returns detected frame.
+    Receives webcam stream and yields processed frames.
     """
 
-    if frame is None:
-        return None
+    cap = cv2.VideoCapture(video)
 
-    # Gradio gives RGB
-    frame = cv2.cvtColor(frame, cv2.COLOR_RGB2BGR)
+    while cap.isOpened():
 
-    # YOLO prediction
-    results = model.predict(
-        source=frame,
-        imgsz=640,
-        conf=0.4,
-        verbose=False
-    )
+        success, frame = cap.read()
 
-    # Draw detections
-    annotated = results[0].plot()
+        if not success:
+            break
 
-    # Convert back to RGB
-    annotated = cv2.cvtColor(
-        annotated,
-        cv2.COLOR_BGR2RGB
-    )
+        # YOLO inference
+        results = model(
+            frame,
+            imgsz=320,
+            conf=0.4,
+            verbose=False
+        )
 
-    return annotated
+        # Draw boxes
+        annotated = results[0].plot()
+
+        # Convert BGR -> RGB
+        annotated = cv2.cvtColor(
+            annotated,
+            cv2.COLOR_BGR2RGB
+        )
+
+        yield annotated
+
+        # Control FPS
+        time.sleep(0.03)
+
+    cap.release()
 
 
-with gr.Blocks(title="YOLO26 Live Detection") as demo:
+with gr.Blocks() as demo:
 
     gr.Markdown(
         """
-        # YOLO26 Real-Time Object Detection
-        
-        Allow webcam access and see live detections.
+        # YOLO26 Live Webcam Detection
         """
     )
 
-    webcam = gr.Image(
+    input_video = gr.Video(
         sources=["webcam"],
         streaming=True,
-        type="numpy",
-        label="Webcam"
+        label="Camera"
     )
 
-    output = gr.Image(
-        label="Detection Output"
+    output_video = gr.Image(
+        label="YOLO Detection"
     )
 
-    webcam.stream(
-        fn=detect_frame,
-        inputs=webcam,
-        outputs=output,
-        time_limit=60
+    input_video.stream(
+        fn=webcam_detection,
+        inputs=input_video,
+        outputs=output_video
     )
 
 
-if __name__ == "__main__":
-
-    demo.launch(
-        server_name="0.0.0.0",
-        server_port=int(os.environ.get("PORT", 7860))
-    )
+demo.launch(
+    server_name="0.0.0.0",
+    server_port=int(os.environ.get("PORT",7860))
+)
