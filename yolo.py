@@ -2,22 +2,25 @@ import gradio as gr
 from ultralytics import YOLO
 import cv2
 import numpy as np
+import os
 
-# Load YOLO model once when the app starts
+# Load model once
 model = YOLO("yolo26n.pt")
 
 
-def detect_objects(image):
+def detect_frame(frame):
     """
-    Runs YOLO detection on an uploaded image or webcam frame.
+    Receives webcam frame continuously
+    and returns detected frame.
     """
-    if image is None:
+
+    if frame is None:
         return None
 
-    # Convert RGB (Gradio) -> BGR (OpenCV)
-    frame = cv2.cvtColor(image, cv2.COLOR_RGB2BGR)
+    # Gradio gives RGB
+    frame = cv2.cvtColor(frame, cv2.COLOR_RGB2BGR)
 
-    # Run prediction
+    # YOLO prediction
     results = model.predict(
         source=frame,
         imgsz=640,
@@ -25,26 +28,49 @@ def detect_objects(image):
         verbose=False
     )
 
-    # Draw bounding boxes
-    output = results[0].plot()
+    # Draw detections
+    annotated = results[0].plot()
 
-    # Convert BGR -> RGB for Gradio
-    output = cv2.cvtColor(output, cv2.COLOR_BGR2RGB)
+    # Convert back to RGB
+    annotated = cv2.cvtColor(
+        annotated,
+        cv2.COLOR_BGR2RGB
+    )
 
-    return output
+    return annotated
 
 
-demo = gr.Interface(
-    fn=detect_objects,
-    inputs=gr.Image(type="numpy", label="Upload Image or Use Webcam"),
-    outputs=gr.Image(type="numpy", label="Detection Result"),
-    title="YOLO Live Object Detection",
-    description="Upload an image or use your webcam for real-time object detection."
-)
+with gr.Blocks(title="YOLO26 Live Detection") as demo:
 
-import os
+    gr.Markdown(
+        """
+        # YOLO26 Real-Time Object Detection
+        
+        Allow webcam access and see live detections.
+        """
+    )
+
+    webcam = gr.Image(
+        sources=["webcam"],
+        streaming=True,
+        type="numpy",
+        label="Webcam"
+    )
+
+    output = gr.Image(
+        label="Detection Output"
+    )
+
+    webcam.stream(
+        fn=detect_frame,
+        inputs=webcam,
+        outputs=output,
+        time_limit=60
+    )
+
 
 if __name__ == "__main__":
+
     demo.launch(
         server_name="0.0.0.0",
         server_port=int(os.environ.get("PORT", 7860))
