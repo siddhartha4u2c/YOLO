@@ -39,12 +39,13 @@ demo = gr.Interface(
     inputs=gr.Image(type="numpy", label="Upload Image or Use Webcam"),
     outputs=gr.Image(type="numpy", label="Detection Result"),
     title="YOLO Live Object Detection",
-    description="Upload an image or use your webcam for real-time object detection.",
-    allow_flagging="never"
+    description="Upload an image or use your webcam for real-time object detection."
 )
+
 import os
 
-demo.launch(
-    server_name="0.0.0.0",
-    server_port=int(os.environ.get("PORT", 7860))
-)
+if __name__ == "__main__":
+    demo.launch(
+        server_name="0.0.0.0",
+        server_port=int(os.environ.get("PORT", 7860))
+    )
